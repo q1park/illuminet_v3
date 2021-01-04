@@ -5,7 +5,7 @@ import json
 import numpy as np
 from collections import Counter
 
-import cv2
+# import cv2
 from PIL import Image
 
 ## load and save json
