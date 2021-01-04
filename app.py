@@ -3,6 +3,7 @@ import re
 import glob
 import torch
 import spacy 
+import sentencepiece
 # import en_core_web_sm
 from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
 
