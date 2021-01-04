@@ -3,9 +3,9 @@ import re
 import glob
 import torch
 import spacy 
-import sentencepiece
+# import sentencepiece
 # import en_core_web_sm
-from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
+# from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
 
 import SessionState
 from src.data.utils import reget, unique
@@ -184,11 +184,11 @@ def tm_to_section_dict(data_dir):
     return make_section_dict(tm.df)
     
 def run():
-    model_t5 = AutoModelWithLMHead.from_pretrained("t5-base")
-    tokenizer_t5 = AutoTokenizer.from_pretrained("t5-base")
+#     model_t5 = AutoModelWithLMHead.from_pretrained("t5-base")
+#     tokenizer_t5 = AutoTokenizer.from_pretrained("t5-base")
 
-    tokenizer_qa = AutoTokenizer.from_pretrained("mrm8488/t5-base-finetuned-question-generation-ap")
-    model_qa = AutoModelWithLMHead.from_pretrained("mrm8488/t5-base-finetuned-question-generation-ap")
+#     tokenizer_qa = AutoTokenizer.from_pretrained("mrm8488/t5-base-finetuned-question-generation-ap")
+#     model_qa = AutoModelWithLMHead.from_pretrained("mrm8488/t5-base-finetuned-question-generation-ap")
     
     dirs = {'TM':get_name_cat('TM'), 'DIF':get_name_cat('DIF')}
     state = SessionState.get(TM={}, DIF={}, display={}, summary={}, questions={})
