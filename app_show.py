@@ -1,7 +1,7 @@
 import streamlit as st
 import re
 import glob
-import spacy 
+# import spacy 
 
 import SessionState
 from src.data.utils import reget, unique
