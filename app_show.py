@@ -2,7 +2,6 @@ import streamlit as st
 import re
 import glob
 import spacy 
-import en_core_web_sm
 
 import SessionState
 from src.data.utils import reget, unique
