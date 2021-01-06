@@ -29,7 +29,7 @@ def run():
     state = SessionState.get(TM={}, DIF={}, display={})
     
     cat = 'TM'
-    st.sidebar.subheader('Data View')
+    st.sidebar.header('View Document')
 
     view = st.sidebar.selectbox(
         "Select Document", 
@@ -44,7 +44,7 @@ def run():
         
     doc_search = DocSearch(tm_to_chunks(data_dir=dirs[cat][view]))
     
-    st.title('Document Browser')
+    st.title('Document Viewer')
 
     if view_type=='Full Text':
         state.display = doc_search.section_dict
@@ -58,16 +58,17 @@ def run():
         else:
             state.display = {}
     
-    st.sidebar.subheader('Data Search')
+    st.sidebar.header('Search Document')
     
-    topk = st.sidebar.slider("Number of Results", 0, 10, 3)
-    thresh = st.sidebar.slider("Threshold", 0., 0.3, 0.05, 0.0025)
+    topk = st.sidebar.slider("Number of Search Results", 0, 10, 3)
+    thresh = st.sidebar.slider("Search Relevance Threshold", 0., 0.3, 0.05, 0.0025)
 
     query = st.sidebar.text_area("Search Field", "")
 
     if st.sidebar.button("Search"):
         state.display = doc_search.query(query, topk=topk, thresh=thresh)
         
+    st.sidebar.write("Note: Currently the search function can only search through full text")
     st.write(state.display)
 
 if __name__ == "__main__":
