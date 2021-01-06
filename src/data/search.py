@@ -3,27 +3,62 @@ import torch
 
 from sklearn.preprocessing import normalize
 from src.nlp.tfidf import CountVectors, TFIDFVectors
-from src.data.pdf_featurizer import make_section_segments
 
-def make_section_dict(line_df):
+def make_digest_dict(chunk_df):   
+    digest_dict = {}
+
+    for k,v in chunk_df.groupby('section'):
+        digest_dict[k] = {}
+
+        for kk,vv in v.groupby('subsection'):
+            digest_dict[k][kk] = {}
+
+            for kkk,vvv in vv.groupby('subsubsection'):
+                if vvv.iloc[0]['title']=='':
+                    pass;
+#                     raise ValueError('Section Error')
+                
+                digest_dict[k][kk][kkk] = {
+                    'name':vvv.iloc[0]['title'], 
+                    'content':' '.join([x for x in vvv['section_summary'].tolist() if len(x)>0]).strip()}
+    return digest_dict
+
+def make_cliffs_dict(chunk_df):   
+    cliffs_dict = {}
+
+    for k,v in chunk_df.groupby('section'):
+        cliffs_dict[k] = {}
+
+        for kk,vv in v.groupby('subsection'):
+            cliffs_dict[k][kk] = {}
+
+            for kkk,vvv in vv.groupby('subsubsection'):
+                if vvv.iloc[0]['title']=='':
+                    pass;
+#                     raise ValueError('Section Error')
+                
+                cliffs_dict[k][kk][kkk] = {
+                    'name':vvv.iloc[0]['title'], 
+                    'content':[x for x in vvv['group_summary'].tolist() if len(x)>0]}
+    return cliffs_dict
+
+def make_section_dict(chunk_df):   
     section_dict = {}
-    section_segments = make_section_segments(line_df, verbose=False)
 
-    clean_df = line_df.drop(columns=['c0', 'size', 'face', 'marker', 'line', 'page', 'x0', 'y0', 'x1', 'y1', 'spacing'])
-    clean_df = clean_df[(clean_df['mask']==0)&(clean_df['sections']>=0)&(clean_df['subsections']>=0)&(clean_df['types']>0)]
-
-    for k,v in clean_df.groupby('sections'):
+    for k,v in chunk_df.groupby('section'):
         section_dict[k] = {}
 
-        for kk,vv in v.groupby('subsections'):
+        for kk,vv in v.groupby('subsection'):
             section_dict[k][kk] = {}
 
-            for kkk,vvv in vv.groupby('subsubsections'):
-                section_dict[k][kk][kkk] = {'name':section_segments[(k,kk,kkk)][0], 'content':[]}
-
-                for kkkk,vvvv in vvv.groupby('groups'):
-                    content = [' '.join(v['content'].tolist()).strip() for k,v in vvvv.groupby('chunks')]
-                    section_dict[k][kk][kkk]['content'].append(content)
+            for kkk,vvv in vv.groupby('subsubsection'):
+                if vvv.iloc[0]['title']=='':
+                    pass;
+#                     raise ValueError('Section Error')
+                
+                section_dict[k][kk][kkk] = {
+                    'name':vvv.iloc[0]['title'], 
+                    'content':[vvvv.content.tolist() for kkkk,vvvv in vvv.groupby('group')]}
     return section_dict
 
 def flatten_section_dict(section_dict):
@@ -37,8 +72,11 @@ def flatten_section_dict(section_dict):
     return section_dict_flat
 
 class DocSearch:
-    def __init__(self, section_dict):
-        self.section_dict = section_dict
+    def __init__(self, chunk_df):
+        self.section_dict = make_section_dict(chunk_df)
+        self.cliffs_dict = make_cliffs_dict(chunk_df)
+        self.digest_dict = make_digest_dict(chunk_df)
+        
         self.section_dict_flat = flatten_section_dict(self.section_dict)
         self.groups = [x[-1] for x in self.section_dict_flat]
         self.vecs = CountVectors(*self.groups)

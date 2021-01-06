@@ -5,6 +5,22 @@ from src.data.structures import LineData
 from src.data.utils import reget, unique, box_edges, box_counter, box_counter_page
 
 #####################################################################################
+### Functions to tag figure and table captions
+#####################################################################################
+
+def make_caption(line_df):
+    captions = []
+    
+    for i,row in line_df.iterrows():
+        if re.search('^Figure', row['content']):
+            captions.append(1)
+        elif re.search('^Table', row['content']):
+            captions.append(2)
+        else:
+            captions.append(0)
+    return captions
+
+#####################################################################################
 ### Functions to make line spacing feature
 #####################################################################################
 
@@ -18,149 +34,6 @@ def make_spacing_back(line_df):
     box = list(line_df[['x0', 'y0', 'x1', 'y1']].to_records(index=False))
     ytb = box_edges(box, 1, 3)
     return [-99.]+[np.around(ytb[i][0]-ytb[i-1][1], 1) for i in range(1, len(ytb))]
-
-
-#####################################################################################
-### Functions to make document indentation feature
-#####################################################################################
-
-def make_indent(line_df):
-    box = list(line_df[['x0', 'y0', 'x1', 'y1']].to_records(index=False))
-    laligns = box_edges(box, 0, rnd=1)
-    counts = Counter(laligns)
-    base = sorted([(k,v) for k,v in counts.items() if k<25], key=lambda x: x[1], reverse=True)[0][0]
-    
-    indent_tags = {base:0}
-    idx = 1 # aggregating the tags for each font size
-    idx_unk = 1
-
-    for lalign in sorted(list(counts.keys())):
-        if lalign>base:
-            indent_tags[lalign] = -idx_unk
-            idx_unk+=1
-        if lalign<base:
-            indent_tags[lalign] = idx
-            idx += 1
-    return [indent_tags[x] for x in laligns]
-
-#####################################################################################
-### Functions to make chunks, groups, and types
-#####################################################################################
-
-import string
-
-BACK_SEP = 0.3
-FRONT_SEP = 0.3
-
-def make_alphanum_dict():
-    alphanum_dict = {}
-    alphanum_dict.update(dict(zip(
-        list(string.ascii_lowercase), 
-        [str(x) for x in range(len(string.ascii_lowercase))]
-    )))
-    alphanum_dict.update(dict(zip(
-        list(string.ascii_uppercase), 
-        [str(x) for x in range(len(string.ascii_uppercase))]
-    )))
-    return alphanum_dict
-
-alphanum_dict = make_alphanum_dict()
-re_strip = re.compile(r'^[^a-zA-Z0-9\•]|[^a-zA-Z0-9\•]$')
-
-def make_tag(prefix):
-    tag = re_strip.sub('', prefix)
-    
-    if tag.isalpha():
-        return alphanum_dict[tag]
-    else:
-        return tag
-
-
-def make_chunks(line_df):
-    sfront = make_spacing_front(line_df)
-    sback = make_spacing_back(line_df)
-    
-    is_list = False
-    is_enum = False
-    
-    lists_enums = line_df[line_df['marker']>0]
-    lists_enums_iloc = dict(zip(lists_enums.index, range(len(lists_enums.index))))
-    lists_enums_loc = dict(zip(range(len(lists_enums.index)), lists_enums.index))
-    
-    chunks = []
-    groups = []
-    types = []
-    n_chunk = -1
-    n_group = 0
-    
-    for i, row in line_df.iterrows():
-        f,b = sfront[i], sback[i]
-        next_f = sfront[i+1] if i<len(sfront)-1 else -99.
-        
-        not_front_not_back = np.abs(f)>FRONT_SEP and np.abs(b)>BACK_SEP
-        front_not_back = not np.abs(f)>FRONT_SEP and np.abs(b)>BACK_SEP
-        not_front_back = np.abs(f)>FRONT_SEP and not np.abs(b)>BACK_SEP
-        
-        this_line, this_tag, this_marker = i, make_tag(row.prefix), row.marker
-        
-        if this_marker>0 and lists_enums_iloc[i]<len(lists_enums)-1:
-            idx = lists_enums_iloc[i]
-        
-            next_line = lists_enums_loc[idx+1]
-            next_tag = make_tag(lists_enums.iloc[idx+1].prefix)
-            next_marker = lists_enums.iloc[idx+1].marker
-        else:
-            next_line = -1
-            next_tag = ''
-            next_marker = -1
-
-        if this_marker==1:
-            n_chunk+=1
-            _type = 2
-            if not is_list:
-                is_list = True
-                n_group+=1
-
-            if (next_marker==1 and next_line-this_line<15):
-                is_list = True
-            else:
-                is_list = False
-        elif this_marker==2:
-            _type = 3
-            n_chunk+=1
-            if not is_enum and next_tag.isdigit() and int(next_tag)==int(this_tag)+1:
-                is_enum = True
-                n_group+=1
-            if next_tag.isdigit() and int(next_tag)==int(this_tag)+1:
-                is_enum = True
-            else:
-                is_enum = False
-
-        else:
-            if is_list:
-                _type = 2
-            elif is_enum:
-                _type = 3
-            elif not_front_not_back:
-                _type = 0
-                if not re.search(r'^[a-z]', row.content):
-                    n_chunk+=1
-                    if len(types)>0 and types[-1] != _type:
-                        n_group+=1
-            elif front_not_back:
-                _type = 1
-                if not re.search(r'^[a-z]', row.content):
-                    n_chunk+=1
-                    if len(types)>0 and types[-1] != _type:
-                        n_group+=1
-            else:
-                _type = 1
-
-        chunks.append(n_chunk)
-        groups.append(n_group)
-        types.append(_type)
-    assert len(chunks)==len(line_df)
-    return chunks, groups, types
 
 #####################################################################################
 ### Functions to make document mask feature
@@ -234,6 +107,141 @@ def make_mask(line_df):
 
     assert len(doc_mask)==len(line_df)
     return doc_mask
+
+#####################################################################################
+### Functions to make chunks, groups, and types
+#####################################################################################
+
+import string
+
+BACK_SEP = 0.3
+FRONT_SEP = 0.3
+
+def make_alphanum_dict():
+    alphanum_dict = {}
+    alphanum_dict.update(dict(zip(
+        list(string.ascii_lowercase), 
+        [str(x) for x in range(len(string.ascii_lowercase))]
+    )))
+    alphanum_dict.update(dict(zip(
+        list(string.ascii_uppercase), 
+        [str(x) for x in range(len(string.ascii_uppercase))]
+    )))
+    return alphanum_dict
+
+alphanum_dict = make_alphanum_dict()
+re_strip = re.compile(r'^[^a-zA-Z0-9\•]|[^a-zA-Z0-9\•]$')
+
+def make_tag(prefix):
+    tag = re_strip.sub('', prefix)
+    
+    if tag.isalpha():
+        return alphanum_dict[tag]
+    else:
+        return tag
+
+
+def make_chunks(line_df):
+    sfront = make_spacing_front(line_df)
+    sback = make_spacing_back(line_df)
+    
+    is_list = False
+    is_enum = False
+    
+    lists_enums = line_df[line_df['marker']>0]
+    lists_enums_iloc = dict(zip(lists_enums.index, range(len(lists_enums.index))))
+    lists_enums_loc = dict(zip(range(len(lists_enums.index)), lists_enums.index))
+    
+    chunks = []
+    groups = []
+    types = []
+    n_chunk = -1
+    n_group = 0
+    
+    for i, row in line_df.iterrows():
+        f,b = sfront[i], sback[i]
+        next_f = sfront[i+1] if i<len(sfront)-1 else -99.
+        
+        if f<-FRONT_SEP:
+            f = np.abs(f)
+        if b<-BACK_SEP:
+            b = np.abs(b)
+        
+        not_front_not_back = f>FRONT_SEP and b>BACK_SEP
+        front_not_back = not f>FRONT_SEP and b>BACK_SEP
+        not_front_back = f>FRONT_SEP and not b>BACK_SEP
+        
+        this_line, this_tag, this_marker = i, make_tag(row.prefix), row.marker
+        
+        if row['mask']>0 or (row['prefix'].isdigit() and (np.abs(f)>10. or np.abs(b)>10.)):
+            this_marker = -1
+        
+        if this_marker>0 and lists_enums_iloc[i]<len(lists_enums)-1:
+            idx = lists_enums_iloc[i]
+        
+            next_line = lists_enums_loc[idx+1]
+            next_tag = make_tag(lists_enums.iloc[idx+1].prefix)
+            next_marker = lists_enums.iloc[idx+1].marker
+        else:
+            next_line = -1
+            next_tag = ''
+            next_marker = -1
+
+        if this_marker==0:
+            _type = 0
+            n_chunk+=1
+            is_enum = False
+            is_list = False
+
+            if len(types)>0 and types[-1] != _type:
+                n_group+=1
+        elif this_marker==1:
+            n_chunk+=1
+            _type = 2
+            if not is_list:
+                is_list = True
+                n_group+=1
+
+            if (next_marker==1 and next_line-this_line<15):
+                is_list = True
+            else:
+                is_list = False
+        elif this_marker==2:
+            _type = 3
+            n_chunk+=1
+            if not is_enum and next_tag.isdigit() and int(next_tag)==int(this_tag)+1:
+                is_enum = True
+                n_group+=1
+            if next_tag.isdigit() and int(next_tag)==int(this_tag)+1:
+                is_enum = True
+            else:
+                is_enum = False
+
+        else:
+            if is_list:
+                _type = 2
+            elif is_enum:
+                _type = 3
+            elif not_front_not_back:
+                _type = 0
+                if not re.search(r'^[a-z]', row.content):
+                    n_chunk+=1
+                    if len(types)>0 and types[-1] != _type:
+                        n_group+=1
+            elif front_not_back:
+                _type = 1
+                if not re.search(r'^[a-z]', row.content):
+                    n_chunk+=1
+                    if len(types)>0 and types[-1] != _type:
+                        n_group+=1
+            else:
+                _type = 1
+
+        chunks.append(n_chunk)
+        groups.append(n_group)
+        types.append(_type)
+    assert len(chunks)==len(line_df)
+    return chunks, groups, types
 
 #####################################################################################
 ### Functions to make table of content feature
@@ -420,13 +428,13 @@ def make_header_candidates(line_df, toc_data):
     prev_face = 0
 
     for idx, row in line_df.iterrows():
-        prev_type = line_df.iloc[idx-1].types if idx>0 else 0
+        prev_type = line_df.iloc[idx-1]['type'] if idx>0 else 0
         text = re.sub(r'\s+', ' ', row.c0).strip()
 
         if (
             re.search(r'^[a-z]', text) is not None or
             row['mask']>0 or 
-            row['types']>1 or 
+            row['type']>1 or 
             (np.abs(sfront[idx])<0.4 and np.abs(sback[idx])<0.4) or
             re.search(key_words, text) is None or
             toc_data.lines[idx] is not None
@@ -510,23 +518,26 @@ def match_toc(toc, header, verbose=False):
 
 def make_section_segments(line_df, verbose):
     def next_notnull(match_path, idx):
-        for i in range(idx, list(match_path.keys())[-1]+1):
+        for distance, i in enumerate(range(idx, list(match_path.keys())[-1]+1)):
             if match_path[i] is not None:
-                return match_path[i]
+                return match_path[i], distance
     toc_data = make_toc(line_df)
     header_data = make_header_candidates(line_df, toc_data)
     
     match_path = match_toc(toc_data, header_data, verbose=verbose)
 
     toc_start, toc_end = toc_data.segments[1][0]
-    sections = {(-1,-1,-1):['TOC', toc_start, toc_end], (0,0,0):['START', 0, None]}
+    sections = {(-1,-1,-1):['TOC', toc_start, toc_end], (0,0,0):['START', 1, None]}
 
     for i,(k,v) in enumerate(toc_data.index_map.items()):
-        if len(k)<3:
-            k+=(0,)
-        elif len(k)>3:
-            k = k[:3]
-        start = match_path[v] if match_path[v] is not None else next_notnull(match_path, v)
+        k = k[:3] if len(k)>=3 else k+(0,)*(3-len(k))
+            
+        if match_path[v] is not None:
+            start = match_path[v]
+        else:
+            next_match, distance = next_notnull(match_path, v)
+            start = next_match-distance
+            
         sections[k]=[toc_data.data[v], start, None]
     sections = dict(sorted(sections.items(), key=lambda x: x[1][1]))
     sections_keys = list(sections.keys())
@@ -540,11 +551,17 @@ def make_section_segments(line_df, verbose):
 
 def make_sections(line_df, verbose):
     section_segments = make_section_segments(line_df, verbose=verbose)
-        
-    sections, subsections, subsubsections = [], [], []
+    start_idx = section_segments[(0,0,0)][1]
+    sections, subsections, subsubsections = [0]*start_idx, [0]*start_idx, [0]*start_idx
+    names = ['']*start_idx
+    sections_tag = [0]*start_idx
     
+    sections_idx = 0
     for (s,sb,sbsb), (name, i, f) in section_segments.items():
         sections.extend([s]*(f-i))
         subsections.extend([sb]*(f-i))
         subsubsections.extend([sbsb]*(f-i))
-    return sections, subsections, subsubsections
+        names.extend([name]+['']*(max([f-i-1,0])))
+        sections_tag.extend([sections_idx]*(f-i))
+        sections_idx+=1
+    return sections, subsections, subsubsections, names, sections_tag

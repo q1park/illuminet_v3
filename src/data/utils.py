@@ -1,14 +1,17 @@
 import sys
-import base64
 import re
-import json
 import numpy as np
 from collections import Counter
 
-# import cv2
-from PIL import Image
+def compute_entropy(text):
+    word_list = [x for x in text.split() if len(x)>0]
+    probas = {k:v/len(word_list) for k,v in Counter(word_list).items()}
+    return sum(v*np.log2(1/v) for v in probas.values())
 
-## load and save json
+def group_df_dict(df, by, *args):
+    if len(args)==0:
+        args = tuple(df.columns)
+    return {k:list(v[list(args)].to_records(index=False)) for k,v in df[[by]+list(args)].groupby(by)}
 
 def reget(pattern, string):
     regex = re.search(pattern, string)
@@ -18,46 +21,6 @@ def unique(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
-
-## load and save json
-
-def int_keys(ordered_pairs):
-    result = {}
-    for key, value in ordered_pairs:
-        try:
-            key = int(key)
-        except ValueError:
-            pass
-        result[key] = value
-    return result
-
-def json_load(path):
-    with open(path, 'r') as f: 
-        pydict = json.loads(f.read(), object_pairs_hook=int_keys)
-    return pydict
-
-def json_save(pydict, path):
-    with open(path, 'w') as f: 
-        f.write(json.dumps(pydict))
-        
-## image conversions
-
-def imgpath2np(imgpath):
-    return np.array(Image.open(imgpath).convert('RGB'))
-
-def bimg2utf(bimg):
-    return base64.b64encode(bimg).decode('utf8')
-
-def utf2bimg(uimg):
-    return base64.b64decode(uimg.encode('utf8'))
-
-def bimg2np(bimg):
-    return cv2.imdecode(np.frombuffer(bimg, np.uint8), -1)
-
-def np2bimg(npimg, encoding=None):
-    if encoding is None:
-        encoding = '.png' if npimg.shape[-1]==4 else '.jpg'
-    return cv2.imencode(encoding, npimg)[1].tobytes()
 
 ## recursively compute size of object
 

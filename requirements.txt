@@ -1,5 +1,3 @@
-torch
-opencv_python
 lxml
 nltk
 PyMuPDF==1.18.3

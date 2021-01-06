@@ -2,34 +2,6 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-@dataclass
-class Data:
-    """
-    Specify the features and types input to the first model layer
-    """
-    data: Optional[List[Union[tuple, int, float, str]]] = None
-    index_map: Optional[dict] = None
-        
-    def __call__(self, name):
-        if self.index_map is None:
-            raise KeyError('no index map')
-        else:
-            return self.data[self.index_map[name]]
-        
-@dataclass
-class MultiData(Data):
-    """
-    Specify the features and types input to the first model layer
-    """
-    mode: Optional[str] = None
-    vector: Optional[str] = None
-        
-    token_map: Optional[dict] = None
-    size: Optional[int] = None
-    min: Optional[Union[int, float, str]] = None
-    max: Optional[Union[int, float, str]] = None
-    max_len: Optional[int] = None
-        
 class Processor:
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -44,6 +16,20 @@ class Processor:
     def load_pickle(self, pkl):
         with open(os.path.join(self.dir, pkl), "rb") as f:
             self.__dict__.update(pickle.load(f))
+            
+@dataclass
+class Data:
+    """
+    Specify the features and types input to the first model layer
+    """
+    data: Optional[List[Union[tuple, int, float, str]]] = None
+    index_map: Optional[dict] = None
+        
+    def __call__(self, name):
+        if self.index_map is None:
+            raise KeyError('no index map')
+        else:
+            return self.data[self.index_map[name]]
             
 def make_segments(lines):
     segments = {}

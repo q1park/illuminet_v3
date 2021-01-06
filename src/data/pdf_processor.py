@@ -5,38 +5,87 @@ import glob
 import numpy as np
 import pandas as pd
 
-from src.data.structures import Processor, LineData
-from src.data.pdf_reader import pdf_to_spans, spans_to_lines, shift_boxes
+from src.data.utils_io import save_pickle, load_pickle
+from src.data.pdf_featurizer import make_caption, make_mask, make_spacing_back, make_chunks, make_sections
+from src.data.pdf_reader import pdf_to_spans
+from src.data.pdf_transformer import shift_boxes, spans_to_lines, lines_to_chunks
+from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
 
-def group_df_dict(df, by, *args):
-    if len(args)==0:
-        args = tuple(df.columns)
-    return {k:list(v[list(args)].to_records(index=False)) for k,v in df[[by]+list(args)].groupby(by)}
+def add_column(df, func, *names):
+    output = func(df) if len(names)>1 else tuple([func(df)])
+    for name, lines in zip(names, output):
+        df[name] = lines
+    return df
 
-class PDFProcessor(Processor):
+class PDFProcessor:
     def __init__(self, data_dir, **kwargs):
         super(PDFProcessor, self).__init__(**kwargs)
+        self.df = None
         self.dir = os.path.join(*re.split(r'[\/\\]', data_dir))
         self.pdf_path = glob.glob(os.path.join(self.dir,'*.pdf'))[0]
         
-        self.df = None
-        self.images = None
+        self.chunk_path = os.path.join(self.dir, 'chunks.tsv')
+        self.line_path = os.path.join(self.dir, 'lines.tsv')
+        self.span_path = os.path.join(self.dir, 'spans.tsv')
         
-    def load_pdf(self, fix_boxes=False, verbose=False):
-        span_df, lines_boxes, self.images =  pdf_to_spans(self.pdf_path)
-        self.df = spans_to_lines(span_df, lines_boxes)
-                
+        self.bbox_path = os.path.join(self.dir, 'bboxes.pkl')
+        self.image_path = os.path.join(self.dir, 'images.pkl')
+        self.question_path = os.path.join(self.dir, 'questions.pkl')
+        
+        
+
+    def extract_from_pdf(self, fix_boxes=True, verbose=False):
+        span_df, lines_bboxes, images_bytes =  pdf_to_spans(self.pdf_path)
+        
+        line_df = spans_to_lines(span_df, lines_bboxes)
+        line_df = self.featurize_lines(line_df, fix_boxes=fix_boxes, verbose=verbose)
+        line_df.to_csv(self.line_path, sep='\t', index=False)
+        span_df.to_csv(self.span_path, sep='\t', index=False)
+        save_pickle(lines_bboxes, self.bbox_path)
+        save_pickle(images_bytes, self.image_path)
+
+    def extract_chunks(self):
+        if not os.path.exists(self.line_path):
+            self.extract_from_pdf(fix_boxes=True, verbose=False)
+            
+        chunk_df = lines_to_chunks(pd.read_csv(self.line_path, sep='\t').fillna(''))
+        chunk_df = self.featurize_chunks(chunk_df)
+        chunk_df.to_csv(self.chunk_path, sep='\t', index=False)
+            
+    def featurize_lines(self, line_df, fix_boxes=False, verbose=False):
         if fix_boxes:
-            self.fix_boxes()
+            line_df = shift_boxes(line_df, verbose=verbose)
             
-    def fix_boxes(self):
-        lines_boxes = shift_boxes(group_df_dict(self.df, 'page', *['x0', 'y0', 'x1', 'y1']))
-        self.df.update(pd.DataFrame([list(x) for x in lines_boxes.values()], columns = ['x0', 'y0', 'x1', 'y1']))
-            
-    def add_feature(self, func_df, *names):
-        if len(names)==1:
-            lines = func_df(self.df)
-            self.df[names[0]] = lines
-        else:
-            for name, lines in zip(names, func_df(self.df)):
-                self.df[name] = lines
+        line_df = add_column(line_df, make_caption, 'caption')
+        line_df = add_column(line_df, make_mask, 'mask')
+        line_df = add_column(line_df, make_spacing_back, 'spacing')
+        line_df = add_column(line_df, make_chunks, 'chunk', 'group', 'type')
+        line_df = add_column(
+            line_df, lambda x: make_sections(x, verbose=verbose), 
+            'section', 'subsection', 'subsubsection', 'title', 'section_tag'
+        )
+        return line_df
+    
+    def featurize_chunks(self, chunk_df):
+        model_t5 = AutoModelWithLMHead.from_pretrained("t5-base")
+        tokenizer_t5 = AutoTokenizer.from_pretrained("t5-base")
+        chunk_df = make_chunk_mask(chunk_df)
+        chunk_df = make_chunk_summaries(chunk_df, model_t5, tokenizer_t5)
+        chunk_df = make_group_summaries(chunk_df, model_t5, tokenizer_t5)
+        chunk_df = make_section_summaries(chunk_df, model_t5, tokenizer_t5)
+        return chunk_df
+    
+    def load_spans(self):
+        if not os.path.exists(self.span_path):
+            self.extract_from_pdf(fix_boxes=True, verbose=False)
+        self.df = pd.read_csv(self.span_path, sep='\t').fillna('')
+        
+    def load_lines(self):
+        if not os.path.exists(self.line_path):
+            self.extract_from_pdf(fix_boxes=True, verbose=False)
+        self.df = pd.read_csv(self.line_path, sep='\t').fillna('')
+        
+    def load_chunks(self):
+        if not os.path.exists(self.chunk_path):
+            self.extract_chunks()
+        self.df = pd.read_csv(self.chunk_path, sep='\t').fillna('')
