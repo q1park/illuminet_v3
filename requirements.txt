@@ -1,3 +1,4 @@
+torch
 lxml
 nltk
 PyMuPDF==1.18.3
