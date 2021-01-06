@@ -29,7 +29,7 @@ def run():
     state = SessionState.get(TM={}, DIF={}, display={})
     
     cat = 'TM'
-    st.sidebar.subheader('Data Processor')
+    st.sidebar.subheader('Data View')
 
     view = st.sidebar.selectbox(
         "Select Document", 
@@ -44,7 +44,7 @@ def run():
         
     doc_search = DocSearch(tm_to_chunks(data_dir=dirs[cat][view]))
     
-    st.title('Data Explorer')
+    st.title('Document Browser')
 
     if view_type=='Full Text':
         state.display = doc_search.section_dict
@@ -57,6 +57,8 @@ def run():
             state.display = load_pickle(os.path.join(dirs[cat][view], 'questions.pkl'))
         else:
             state.display = {}
+    
+    st.sidebar.subheader('Data Search')
     
     topk = st.sidebar.slider("Number of Results", 0, 10, 3)
     thresh = st.sidebar.slider("Threshold", 0., 0.3, 0.05, 0.0025)
