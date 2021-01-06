@@ -1,7 +1,6 @@
 import streamlit as st
 import re
 import glob
-import torch
 import spacy 
 import en_core_web_sm
 
@@ -59,7 +58,6 @@ def run():
             state.display = load_pickle(os.path.join(dirs[cat][view], 'questions.pkl'))
         else:
             state.display = {}
-    
     
     topk = st.sidebar.slider("Number of Results", 0, 10, 3)
     thresh = st.sidebar.slider("Threshold", 0., 0.3, 0.05, 0.0025)
