@@ -71,5 +71,11 @@ def run():
     st.sidebar.write("Note: Currently the search function can only search through full text")
     st.write(state.display)
 
+    for k,v in state.display.items():
+        for kk,vv in v.items():
+            for kkk,vvv in vv.items():
+                with st.beta_expander(str((k,kk,kkk))+' '+vvv['name']):
+                    st.write(vvv['content'])
+
 if __name__ == "__main__":
     run()
