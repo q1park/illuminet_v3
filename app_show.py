@@ -69,7 +69,7 @@ def run():
         state.display = doc_search.query(query, topk=topk, thresh=thresh)
         
     st.sidebar.write("Note: Currently the search function can only search through full text")
-    st.write(state.display)
+#    st.write(state.display)
 
     for k,v in state.display.items():
         for kk,vv in v.items():
