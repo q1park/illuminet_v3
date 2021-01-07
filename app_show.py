@@ -44,7 +44,6 @@ def run():
         
     doc_search = DocSearch(tm_to_chunks(data_dir=dirs[cat][view]))
     
-    st.title('Document Viewer')
 
     if view_type=='Full Text':
         state.display = doc_search.section_dict
@@ -70,6 +69,8 @@ def run():
         
     st.sidebar.write("Note: Currently the search function can only search through full text")
 #    st.write(state.display)
+
+    st.title(view_type)
 
     for k,v in state.display.items():
         for kk,vv in v.items():
