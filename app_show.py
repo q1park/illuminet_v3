@@ -137,12 +137,14 @@ def run():
                         if isinstance(x, dict):
                             if 'score' in x:
                                 st.write(x['score'])
-                            elif 'image' in x and x['image'] is not None:
+                            if 'image' in x and x['image'] is not None:
                                 st.image(x['image'])
                                 st.write(x['caption'])
                                 
-                            if len(x['group'])>0:
+                            if 'group' in x and len(x['group'])>0:
                                 st.write(x['group'])
+                            else:
+                                st.write(x)
                         else:
                             st.write(x)
 
