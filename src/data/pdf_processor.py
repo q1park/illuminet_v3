@@ -10,7 +10,7 @@ from src.data.pdf_featurizer import (
     make_caption, make_mask, make_spacing_back, make_chunks, make_sections, make_image_urls
 )
 from src.data.pdf_reader import pdf_to_spans
-from src.data.tricks import make_chunk_summaries, make_group_summaries, make_section_summaries
+#from src.data.tricks import make_chunk_summaries, make_group_summaries, make_section_summaries
 from src.data.pdf_transformer import shift_boxes, spans_to_lines, lines_to_chunks
 from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
 
