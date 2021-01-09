@@ -14,8 +14,8 @@ from src.data.pdf_reader import pdf_to_spans
 from src.data.pdf_transformer import shift_boxes, spans_to_lines, lines_to_chunks
 from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
 
-from src.data.utils_image import bimg2np
-from PIL import Image
+#from src.data.utils_image import bimg2np
+#from PIL import Image
 
 def add_column(df, func, *names):
     output = func(df) if len(names)>1 else tuple([func(df)])
