@@ -131,7 +131,8 @@ def flatten_chunk(chunk_df):
     subsubsection = chunk_df['subsubsection'].iloc[0]
     title = first_nonempty(chunk_df, 'title')
     section_tag = chunk_df['section_tag'].iloc[0]
-    return prefix, content, marker, chunk, group, section, subsection, subsubsection, title, section_tag
+    image_url = first_nonempty(chunk_df, 'image_url')
+    return prefix, content, marker, chunk, group, section, subsection, subsubsection, title, section_tag, image_url
     
 
 def lines_to_chunks(line_df):
@@ -141,10 +142,10 @@ def lines_to_chunks(line_df):
     ]
     newcols = [
         'prefix', 'content', 'marker', 'chunk', 'group',
-        'section', 'subsection', 'subsubsection', 'title', 'section_tag'
+        'section', 'subsection', 'subsubsection', 'title', 'section_tag', 'image_url'
     ]
 
-    clean_df = line_df[(line_df['caption']==0)&(line_df['mask']==0)&(line_df['section']>=0)&(line_df['subsection']>=0)]
+    clean_df = line_df[(line_df['mask']==0)&(line_df['section']>=0)&(line_df['subsection']>=0)]
     clean_df = clean_df.drop(columns=dropcols).reset_index(drop=True)
     
     chunks_idx, groups_idx = 0, 0

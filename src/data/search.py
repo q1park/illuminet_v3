@@ -20,7 +20,7 @@ def make_digest_dict(chunk_df):
                 
                 digest_dict[k][kk][kkk] = {
                     'name':vvv.iloc[0]['title'], 
-                    'content':' '.join([x for x in vvv['section_summary'].tolist() if len(x)>0]).strip()}
+                    'content':vvv['section_summary']}
     return digest_dict
 
 def make_cliffs_dict(chunk_df):   
@@ -40,6 +40,7 @@ def make_cliffs_dict(chunk_df):
                 cliffs_dict[k][kk][kkk] = {
                     'name':vvv.iloc[0]['title'], 
                     'content':[x for x in vvv['group_summary'].tolist() if len(x)>0]}
+                    
     return cliffs_dict
 
 def make_section_dict(chunk_df):   
@@ -56,9 +57,20 @@ def make_section_dict(chunk_df):
                     pass;
 #                     raise ValueError('Section Error')
                 
-                section_dict[k][kk][kkk] = {
-                    'name':vvv.iloc[0]['title'], 
-                    'content':[vvvv.content.tolist() for kkkk,vvvv in vvv.groupby('group')]}
+                section_dict[k][kk][kkk] = {'name':vvv.iloc[0]['title'], 'content':[]}
+                for kkkk,vvvv in vvv.groupby('group'):
+                    image, caption = None, None
+                    
+                    image_df = vvvv[vvvv['image_url']!='']
+                    if len(image_df)>0:
+                        image, caption = image_df['image_url'].iloc[0], image_df['content'].iloc[0]
+                    
+                    section_dict[k][kk][kkk]['content'].append({
+                        'image':image,
+                        'caption':caption,
+                        'group':vvvv['content'].tolist(),
+                    })
+                    
     return section_dict
 
 def flatten_section_dict(section_dict):
@@ -68,11 +80,14 @@ def flatten_section_dict(section_dict):
         for kk,vv in v.items():
             for kkk,vvv in vv.items():
                 for i,x in enumerate(section_dict[k][kk][kkk]['content']):
-                    section_dict_flat.append(((k,kk,kkk), i, ' '.join(x).strip()))
+                    section_dict_flat.append(((k,kk,kkk), i, ' '.join(x['group']).strip()))
     return section_dict_flat
+
+
 
 class DocSearch:
     def __init__(self, chunk_df):
+        self.df = chunk_df
         self.section_dict = make_section_dict(chunk_df)
         self.cliffs_dict = make_cliffs_dict(chunk_df)
         self.digest_dict = make_digest_dict(chunk_df)
@@ -104,15 +119,22 @@ class DocSearch:
                         'name':self.section_dict[k][kk][kkk]['name'],
                         'content':[]
                     }
+                    
                 score = str(np.around(v.item(), 3))
-                query_dict[k][kk][kkk]['content'].append({score:self.section_dict[k][kk][kkk]['content'][g]})
+                query_dict[k][kk][kkk]['content'].append({
+                    'image':self.section_dict[k][kk][kkk]['content'][g]['image'],
+                    'caption':self.section_dict[k][kk][kkk]['content'][g]['caption'],
+                    'group':self.section_dict[k][kk][kkk]['content'][g]['group'],
+                    'score':score
+                })
             return query_dict
         
     def query_groups(self, qtext, rows=None):
         token_idxs = self.vecs.token_idxs(qtext)
         rows = np.array(rows) if rows is not None else slice(None)
         cols = np.array(token_idxs) if len(token_idxs)>0 else slice(None)
-
+#         qvec = self.vecs.query(qtext)[:, cols]
+#         kvec = self.vecs.vectors[rows,:][:, cols]
         qvec = normalize(self.vecs.query(qtext)[:, cols], norm='l1', axis=0)
         kvec = normalize(self.vecs.vectors[rows,:][:, cols], norm='l1', axis=0)
         sim = (kvec@qvec.T).toarray()

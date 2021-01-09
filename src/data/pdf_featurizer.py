@@ -565,3 +565,30 @@ def make_sections(line_df, verbose):
         sections_tag.extend([sections_idx]*(f-i))
         sections_idx+=1
     return sections, subsections, subsubsections, names, sections_tag
+
+#####################################################################################
+### Function to tag image urls
+#####################################################################################
+
+def get_section_image_urls(section_df):
+    image_urls = []
+    image_idxs = section_df[section_df['c0'].str.contains(r'^\<img')].index.values
+    
+
+    for i,row in section_df.iterrows():
+        if row['caption']>0 and re.search(r'^Figure\s[0-9]', row['c0']) and len(image_idxs)>0:
+            image_idx = image_idxs[np.abs((image_idxs-i)).argsort()[0]]
+            image_tag = re.sub(r'[^img0-9]', '', section_df.loc[image_idx]['c0'].strip())
+            image_urls.append(os.path.join(tm.dir, 'images/{}.jpg'.format(image_tag)))
+            
+        else:
+            image_urls.append('')
+    return image_urls
+
+def make_image_urls(line_df):
+    url_list = []
+    for x in map(lambda x: get_section_image_urls(x[1]), line_df.groupby('section_tag')):
+        url_list.extend(x)
+        
+    line_df['image_url'] = url_list
+    return line_df

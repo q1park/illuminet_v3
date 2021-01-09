@@ -6,10 +6,16 @@ import numpy as np
 import pandas as pd
 
 from src.data.utils_io import save_pickle, load_pickle
-from src.data.pdf_featurizer import make_caption, make_mask, make_spacing_back, make_chunks, make_sections
+from src.data.pdf_featurizer import (
+    make_caption, make_mask, make_spacing_back, make_chunks, make_sections, make_image_urls
+)
 from src.data.pdf_reader import pdf_to_spans
+from src.data.tricks import make_chunk_summaries, make_group_summaries, make_section_summaries
 from src.data.pdf_transformer import shift_boxes, spans_to_lines, lines_to_chunks
 from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoModelWithLMHead
+
+from src.data.utils_image import bimg2np
+from PIL import Image
 
 def add_column(df, func, *names):
     output = func(df) if len(names)>1 else tuple([func(df)])
@@ -42,7 +48,10 @@ class PDFProcessor:
         line_df.to_csv(self.line_path, sep='\t', index=False)
         span_df.to_csv(self.span_path, sep='\t', index=False)
         save_pickle(lines_bboxes, self.bbox_path)
-        save_pickle(images_bytes, self.image_path)
+        
+        for k,v in images_bytes.items():
+            image = Image.fromarray(bimg2np(v)).convert('RGB')
+            image.save(os.path.join(self.dir, 'images', "{}.jpg".format(re.sub(r'[\<\>]', '', k))))
 
     def extract_chunks(self):
         if not os.path.exists(self.line_path):
@@ -64,6 +73,7 @@ class PDFProcessor:
             line_df, lambda x: make_sections(x, verbose=verbose), 
             'section', 'subsection', 'subsubsection', 'title', 'section_tag'
         )
+        line_df = add_column(line_df, make_image_urls, 'image_url')
         return line_df
     
     def featurize_chunks(self, chunk_df):
