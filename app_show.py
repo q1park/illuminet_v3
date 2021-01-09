@@ -137,7 +137,7 @@ def run():
                         if isinstance(x, dict):
                             if 'score' in x:
                                 st.write(x['score'])
-                            if x['image'] is not None:
+                            elif 'image' in x and x['image'] is not None:
                                 st.image(x['image'])
                                 st.write(x['caption'])
                                 
